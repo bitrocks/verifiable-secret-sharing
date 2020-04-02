@@ -1,6 +1,38 @@
+//! A rust implementation of  Shamir Secret Sharing over Finite Field.
+//!
+//! The lib support large field charactirics `prime` by taking advantage of `num_bigint`.
+//! It's not optimized for production purpose, which can be improved in several aspects:
+//! 1. replace the `extended_euclid_algo` with machine-friendly `stein_algo` to calculate the modulo inverse;
+//! 2. add commitment scheme to make it verifiable
+//!
+//!
+//! ## Example
+//! ```rust
+//! use shamir_secret_sharing::ShamirSecretSharing as SSS;
+//! use num_bigint::{BigInt, BigUint};
+//! use num_bigint::Sign::*;
+//! # fn main() {
+//! let sss = SSS {
+//!     threshold: 3,
+//!     share_amount: 5,
+//!     prime: BigInt::parse_bytes(b"fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f",16).unwrap()
+//!     };
+//!
+//! let secret = BigInt::parse_bytes(b"ffffffffffffffffffffffffffffffffffffff", 16).unwrap();
+//!
+//! let shares = sss.split(secret.clone());
+//!
+//! println!("shares: {:?}", shares);
+//! assert_eq!(secret, sss.recover(&shares[0..sss.threshold as usize]));
+//! # }
+//! ```
+//!
+
+pub use num_bigint;
 use num_bigint::{BigInt, RandBigInt};
 use num_traits::{One, Zero};
 use rand;
+
 #[derive(Clone, Debug)]
 pub struct ShamirSecretSharing {
     pub threshold: usize,
@@ -12,7 +44,7 @@ impl ShamirSecretSharing {
     pub fn split(&self, secret: BigInt) -> Vec<(usize, BigInt)> {
         assert!(self.threshold < self.share_amount);
         let polynomial = self.sample_polynomial(secret);
-        println!("polynomial: {:?}", polynomial);
+        // println!("polynomial: {:?}", polynomial);
         self.evaluate_polynomial(polynomial)
     }
 
@@ -52,19 +84,11 @@ impl ShamirSecretSharing {
         }
     }
 
-    // pub fn verify(&self, all_shares: Vec<(BigInt, BigInt)>) -> Option<BigInt> {
-    //     assert!(
-    //         all_shares.len() == self.share_amount,
-    //         "wrong all_shares number"
-    //     );
-    //     let shares = &all_shares[0..self.threshold];
-    // }
-
     fn lagrange_interpolation(&self, x: BigInt, xs: Vec<usize>, ys: Vec<BigInt>) -> BigInt {
         let len = xs.len();
-        println!("x: {}, xs: {:?}, ys: {:?}", x, xs, ys);
+        // println!("x: {}, xs: {:?}, ys: {:?}", x, xs, ys);
         let xs_bigint: Vec<BigInt> = xs.iter().map(|x| BigInt::from(*x as i64)).collect();
-        println!("sx_bigint: {:?}", xs_bigint);
+        // println!("sx_bigint: {:?}", xs_bigint);
         (0..len).fold(Zero::zero(), |sum, item| {
             let numerator = (0..len).fold(One::one(), |product: BigInt, i| {
                 if i == item {
@@ -80,10 +104,10 @@ impl ShamirSecretSharing {
                     product * (&xs_bigint[item] - &xs_bigint[i]) % &self.prime
                 }
             });
-            println!(
-                "numerator: {}, donominator: {}, y: {}",
-                numerator, denominator, &ys[item]
-            );
+            // println!(
+            // "numerator: {}, donominator: {}, y: {}",
+            // numerator, denominator, &ys[item]
+            // );
             (sum + numerator * self.mod_reverse(denominator) * &ys[item]) % &self.prime
         })
     }
@@ -95,7 +119,7 @@ impl ShamirSecretSharing {
             num
         };
         let (_gcd, _, inv) = self.extend_euclid_algo(num1);
-        println!("inv:{}", inv);
+        // println!("inv:{}", inv);
         inv
     }
 
@@ -133,10 +157,10 @@ impl ShamirSecretSharing {
             next_t = t - next_t * quotient;
             t = tmp;
         }
-        println!(
-            "{} * {} + {} * {} = {} mod {}",
-            num, t, &self.prime, s, r, &self.prime
-        );
+        // println!(
+        // "{} * {} + {} * {} = {} mod {}",
+        // num, t, &self.prime, s, r, &self.prime
+        // );
         (r, s, t)
     }
 }
@@ -177,15 +201,18 @@ mod tests {
         );
     }
     #[test]
-    fn test_split_and_recover() {
+    fn test_large_prime() {
         let sss = ShamirSecretSharing {
             threshold: 3,
             share_amount: 5,
-            prime: BigInt::from(6999213259363483493573619703 as i128),
-            // prime: BigInt::from(97613),
-            // prime: BigInt::from(1613),
+            // prime: BigInt::from(6999213259363483493573619703 as i128),
+            prime: BigInt::parse_bytes(
+                b"fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f",
+                16,
+            )
+            .unwrap(),
         };
-        let secret = BigInt::from(1234567890);
+        let secret = BigInt::parse_bytes(b"ffffffffffffffffffffffffffffffffffffff", 16).unwrap();
         let shares = sss.split(secret.clone());
         assert_eq!(secret, sss.recover(&shares[0..sss.threshold as usize]));
     }
