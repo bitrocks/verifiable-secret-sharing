@@ -3,6 +3,10 @@ name = "shamir_secret_sharing"
 version = "0.1.0"
 authors = ["hupeng <bitrocks.hu@gmail.com>"]
 edition = "2018"
+repository = "https://github.com/bitrocks/shamir-secret-sharing"
+readme = "README.md"
+description = "A rust implementation of  Shamir Secret Sharing over Finite Field."
+license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]

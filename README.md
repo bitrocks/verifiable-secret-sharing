@@ -5,10 +5,12 @@
 A rust implementation of  Shamir Secret Sharing over Finite Field.
 
 The lib support large field charactirics `prime` by taking advantage of `num_bigint` .
-It's not optimized for production purpose, which can be improved in several aspects:
-1.replace the `extended_euclid_algo` with machine-friendly `stein_algo` to calculate the modulo inverse; 
 
-2. add commitment scheme to make it verifiable
+It's not optimized for production purpose, which can be improved in several aspects: 
+
+* replace the `extended_euclid_algo` with machine-friendly `stein_algo` when calculate the modulo inverse
+
+* add commitment scheme to make it verifiable
 
 ## Example
 
