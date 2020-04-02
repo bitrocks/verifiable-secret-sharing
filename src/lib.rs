@@ -1,8 +1,6 @@
-use num_bigint::BigInt;
+use num_bigint::{BigInt, RandBigInt};
 use num_traits::{One, Zero};
-#[cfg(feature = "rand")]
 use rand;
-// use rand::distributions::Distribution;
 #[derive(Clone, Debug)]
 pub struct ShamirSecretSharing {
     pub threshold: usize,
@@ -14,21 +12,17 @@ impl ShamirSecretSharing {
     pub fn split(&self, secret: BigInt) -> Vec<(usize, BigInt)> {
         assert!(self.threshold < self.share_amount);
         let polynomial = self.sample_polynomial(secret);
+        println!("polynomial: {:?}", polynomial);
         self.evaluate_polynomial(polynomial)
     }
 
-    #[cfg(not(feature = "rand"))]
-    fn sample_polynomial(&self, secret: BigInt) -> Vec<BigInt> {
-        vec![]
-    }
-    #[cfg(feature = "rand")]
     fn sample_polynomial(&self, secret: BigInt) -> Vec<BigInt> {
         let mut coefficients: Vec<BigInt> = vec![secret];
-        // let distr = rand::distributions::Uniform::new_inclusive(0, self.prime - 1);
         let mut rng = rand::thread_rng();
-        let random_coefficients: Vec<BigInt> = (0..self.threshold)
-            // .map(|_| distr.sample(&mut rng))
-            .map(|_| rng.gen_bigint_range(&Zero::zero(), &(self.prime - One::one())))
+        let low = BigInt::from(0);
+        let high = &self.prime - BigInt::from(1);
+        let random_coefficients: Vec<BigInt> = (0..(self.threshold - 1))
+            .map(|_| rng.gen_bigint_range(&low, &high))
             .collect();
         coefficients.extend(random_coefficients);
         coefficients
@@ -43,14 +37,19 @@ impl ShamirSecretSharing {
     fn mod_evaluate_at(&self, polynomial: &[BigInt], x: usize) -> BigInt {
         let x_bigint = BigInt::from(x);
         polynomial.iter().rev().fold(Zero::zero(), |sum, item| {
-            sum * (x_bigint + item) % self.prime
+            (&x_bigint * sum + item) % &self.prime
         })
     }
 
     pub fn recover(&self, shares: &[(usize, BigInt)]) -> BigInt {
         assert!(shares.len() == self.threshold, "wrong shares number");
         let (xs, ys): (Vec<usize>, Vec<BigInt>) = shares.iter().cloned().unzip();
-        self.lagrange_interpolation(Zero::zero(), xs, ys)
+        let result = self.lagrange_interpolation(Zero::zero(), xs, ys);
+        if result < Zero::zero() {
+            result + &self.prime
+        } else {
+            result
+        }
     }
 
     // pub fn verify(&self, all_shares: Vec<(BigInt, BigInt)>) -> Option<BigInt> {
@@ -63,28 +62,40 @@ impl ShamirSecretSharing {
 
     fn lagrange_interpolation(&self, x: BigInt, xs: Vec<usize>, ys: Vec<BigInt>) -> BigInt {
         let len = xs.len();
-        let xs_bigint: Vec<BigInt> = xs.iter().map(|&x| BigInt::from(x)).collect();
+        println!("x: {}, xs: {:?}, ys: {:?}", x, xs, ys);
+        let xs_bigint: Vec<BigInt> = xs.iter().map(|x| BigInt::from(*x as i64)).collect();
+        println!("sx_bigint: {:?}", xs_bigint);
         (0..len).fold(Zero::zero(), |sum, item| {
             let numerator = (0..len).fold(One::one(), |product: BigInt, i| {
                 if i == item {
                     product
                 } else {
-                    product * (x - xs_bigint[i]) % self.prime
+                    product * (&x - &xs_bigint[i]) % &self.prime
                 }
             });
             let denominator = (0..len).fold(One::one(), |product: BigInt, i| {
                 if i == item {
                     product
                 } else {
-                    product * (xs_bigint[item] - xs_bigint[i]) % self.prime
+                    product * (&xs_bigint[item] - &xs_bigint[i]) % &self.prime
                 }
             });
-            (sum + numerator * self.mod_reverse(denominator) * ys[item]) % self.prime
+            println!(
+                "numerator: {}, donominator: {}, y: {}",
+                numerator, denominator, &ys[item]
+            );
+            (sum + numerator * self.mod_reverse(denominator) * &ys[item]) % &self.prime
         })
     }
 
     fn mod_reverse(&self, num: BigInt) -> BigInt {
-        let (_gcd, _, inv) = self.extend_euclid_algo(num);
+        let num1 = if num < Zero::zero() {
+            num + &self.prime
+        } else {
+            num
+        };
+        let (_gcd, _, inv) = self.extend_euclid_algo(num1);
+        println!("inv:{}", inv);
         inv
     }
 
@@ -101,37 +112,33 @@ impl ShamirSecretSharing {
      */
     fn extend_euclid_algo(&self, num: BigInt) -> (BigInt, BigInt, BigInt) {
         let (mut r, mut next_r, mut s, mut next_s, mut t, mut next_t) = (
-            self.prime,
-            num,
-            One::one(),
-            Zero::zero(),
-            Zero::zero(),
-            One::one(),
+            self.prime.clone(),
+            num.clone(),
+            BigInt::from(1),
+            BigInt::from(0),
+            BigInt::from(0),
+            BigInt::from(1),
         );
         let mut quotient;
         let mut tmp;
         while next_r > Zero::zero() {
-            quotient = r / next_r;
-            tmp = next_r;
-            next_r = r - next_r * quotient;
-            r = tmp;
-            tmp = next_s;
-            next_s = s - next_s * quotient;
+            quotient = r.clone() / next_r.clone();
+            tmp = next_r.clone();
+            next_r = r.clone() - next_r.clone() * quotient.clone();
+            r = tmp.clone();
+            tmp = next_s.clone();
+            next_s = s - next_s.clone() * quotient.clone();
             s = tmp;
-            tmp = next_t;
+            tmp = next_t.clone();
             next_t = t - next_t * quotient;
             t = tmp;
         }
+        println!(
+            "{} * {} + {} * {} = {} mod {}",
+            num, t, &self.prime, s, r, &self.prime
+        );
         (r, s, t)
     }
-    // fn mod_euc(&self, lhs: BigInt) -> BigInt {
-    //     let r = lhs % self.prime;
-    //     if r < 0 {
-    //         r + self.prime.abs()
-    //     } else {
-    //         r
-    //     }
-    // }
 }
 
 #[cfg(test)]
@@ -160,17 +167,26 @@ mod tests {
                 (6, BigInt::from(775))
             ]
         );
-        // assert_eq!(sss.recover(&[(1, 1494), (2, 329), (3, 965)]), 1234);
+        assert_eq!(
+            sss.recover(&[
+                (1, BigInt::from(1494)),
+                (2, BigInt::from(329)),
+                (3, BigInt::from(965))
+            ]),
+            BigInt::from(1234)
+        );
     }
     #[test]
     fn test_split_and_recover() {
-        // let sss = ShamirSecretSharing {
-        //     threshold: 3,
-        //     share_amount: 5,
-        //     prime: 6999213259363483493573619703,
-        // };
-        // let secret = 1234567890;
-        // let shares = sss.split(secret);
-        // assert_eq!(secret, sss.recover(&shares[0..sss.threshold as usize]));
+        let sss = ShamirSecretSharing {
+            threshold: 3,
+            share_amount: 5,
+            prime: BigInt::from(6999213259363483493573619703 as i128),
+            // prime: BigInt::from(97613),
+            // prime: BigInt::from(1613),
+        };
+        let secret = BigInt::from(1234567890);
+        let shares = sss.split(secret.clone());
+        assert_eq!(secret, sss.recover(&shares[0..sss.threshold as usize]));
     }
 }

@@ -5,10 +5,7 @@ authors = ["hupeng <bitrocks.hu@gmail.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-[dependencies.rand]
-version = "0.5"
-[dependencies.num-bigint]
-version = "0.2.6"
-features = ["rand"]
-[dependencies.num-traits]
-version = "0.2.11"
+[dependencies]
+rand = "0.5"
+num-bigint = { version = "0.2", features = ["rand"]}
+num-traits = "0.2.11"
