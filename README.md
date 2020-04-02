@@ -17,7 +17,6 @@ It's not optimized for production purpose, which can be improved in several aspe
 ``` rust
 use shamir_secret_sharing::ShamirSecretSharing as SSS;
 use num_bigint::{BigInt, BigUint};
-use num_bigint::Sign::*;
 fn main() {
 let sss = SSS {
     threshold: 3,

@@ -10,7 +10,6 @@
 //! ```rust
 //! use shamir_secret_sharing::ShamirSecretSharing as SSS;
 //! use num_bigint::{BigInt, BigUint};
-//! use num_bigint::Sign::*;
 //! # fn main() {
 //! let sss = SSS {
 //!     threshold: 3,
