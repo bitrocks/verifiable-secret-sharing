@@ -34,3 +34,7 @@ assert_eq!(secret, sss.recover(&shares[0..sss.threshold as usize]));
 
 ```
 
+## Verifiable Secret Sharing(VSS)
+
+[A practical scheme for non-interactive verifiable secret sharing](https://ieeexplore.ieee.org/document/4568297)
+
