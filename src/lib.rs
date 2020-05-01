@@ -28,9 +28,10 @@
 //! assert_eq!(secret, sss.recover(&shares[0..sss.threshold as usize]));
 //! # }
 //! ```
-//!
-//!
+pub use feldman_vss::VerifiableSecretSharing;
+pub use num_bigint_dig;
 pub use simple_sss::ShamirSecretSharing;
 
 mod feldman_vss;
+mod secp256k1_helper;
 mod simple_sss;
