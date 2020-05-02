@@ -6,8 +6,6 @@ pub struct VerifiableSecretSharing {
     pub threshold: usize,
     /// the total number of shares to generate from the secret.
     pub share_amount: usize,
-    /// the characteristic of finite field.
-    pub commitments: Vec<Secp256k1Point>,
 }
 
 impl VerifiableSecretSharing {
@@ -19,22 +17,22 @@ impl VerifiableSecretSharing {
         &self,
         secret: &Secp256k1Scalar,
     ) -> (Vec<(usize, Secp256k1Scalar)>, Vec<Secp256k1Point>) {
-        assert!(self.threshold < self.share_amount);
+        assert!(self.threshold <= self.share_amount);
         let polynomial = self.sample_polynomial(secret);
         let shares = self.evaluate_polynomial(&polynomial);
         println!("polynomial: {:?}", polynomial);
-        let commitments = self.generate_commitments(&polynomial);
+        let commitments = Self::generate_commitments(&polynomial);
         (shares, commitments)
     }
 
-    ///
+    /// Recover the secret by threshold+1 shares.
     pub fn recover(&self, shares: &[(usize, Secp256k1Scalar)]) -> Secp256k1Scalar {
-        assert!(shares.len() == self.threshold + 1);
+        assert!(shares.len() == self.threshold);
         let (xs, ys): (Vec<usize>, Vec<Secp256k1Scalar>) = shares.iter().cloned().unzip();
         self.lagrange_interpolation(Secp256k1Scalar::zero(), &xs, &ys)
     }
 
-    ///
+    /// Verify a specific share distributed by the dealer is valid.
     pub fn verify(share: (usize, Secp256k1Scalar), commitments: &[Secp256k1Point]) -> bool {
         let generator = Secp256k1Point::generator();
         let (share_index, share_value) = share;
@@ -73,17 +71,15 @@ impl VerifiableSecretSharing {
         share_value_commitment == share_index_commitment
     }
 
-    ///
-    pub fn generate_commitments(&self, polynomial: &[Secp256k1Scalar]) -> Vec<Secp256k1Point> {
+    fn generate_commitments(polynomial: &[Secp256k1Scalar]) -> Vec<Secp256k1Point> {
         let generator: Secp256k1Point = Secp256k1Point::generator();
-        (0..=self.threshold)
-            .map(|i| generator * polynomial[i])
-            .collect()
+        let len = polynomial.len();
+        (0..len).map(|i| generator * polynomial[i]).collect()
     }
 
     fn sample_polynomial(&self, secret: &Secp256k1Scalar) -> Vec<Secp256k1Scalar> {
         let mut coefficients = vec![*secret];
-        let random_coefficients: Vec<Secp256k1Scalar> = (0..self.threshold)
+        let random_coefficients: Vec<Secp256k1Scalar> = (0..(self.threshold - 1))
             .map(|_| Secp256k1Scalar::new_random())
             .collect();
         coefficients.extend(random_coefficients);
@@ -120,9 +116,9 @@ impl VerifiableSecretSharing {
             .iter()
             .map(|x| Secp256k1Scalar::from_bigint(&BigInt::from(*x)))
             .collect();
-        (0..=self.threshold).fold(Secp256k1Scalar::zero(), |sum, item| {
+        (0..self.threshold).fold(Secp256k1Scalar::zero(), |sum, item| {
             let numerator: Secp256k1Scalar =
-                (0..=self.threshold).fold(Secp256k1Scalar::one(), |product, i| {
+                (0..self.threshold).fold(Secp256k1Scalar::one(), |product, i| {
                     if i == item {
                         product
                     } else {
@@ -130,7 +126,7 @@ impl VerifiableSecretSharing {
                     }
                 });
             let denominator: Secp256k1Scalar =
-                (0..=self.threshold).fold(Secp256k1Scalar::one(), |product, i| {
+                (0..self.threshold).fold(Secp256k1Scalar::one(), |product, i| {
                     if i == item {
                         product
                     } else {
@@ -150,15 +146,14 @@ impl VerifiableSecretSharing {
 mod tests {
     use super::*;
     #[test]
-    fn test_vss_4_of_5_works() {
+    fn test_vss_3_of_5_works() {
         let secret: Secp256k1Scalar = Secp256k1Scalar::new_random();
         let vss = VerifiableSecretSharing {
             threshold: 3,
             share_amount: 5,
-            commitments: vec![],
         };
         let (shares, commitments) = vss.split(&secret);
-        let sub_shares = &shares[0..4];
+        let sub_shares = &shares[0..3];
         let recovered = vss.recover(&sub_shares);
         assert_eq!(secret, recovered);
         for share in shares {
@@ -170,9 +165,8 @@ mod tests {
     fn test_vss_2_of_2_works() {
         let secret: Secp256k1Scalar = Secp256k1Scalar::new_random();
         let vss = VerifiableSecretSharing {
-            threshold: 1,
+            threshold: 2,
             share_amount: 2,
-            commitments: vec![],
         };
         let (shares, commitments) = vss.split(&secret);
         println!("shares: {:?}", shares);
@@ -187,22 +181,23 @@ mod tests {
     // y = 5 + 3x, point1(1,8), point2(2,11)
     #[test]
     fn test_vss_simple_2_of_2_works() {
-        let secret: Secp256k1Scalar =
-            hex_to_scalar(b"0000000000000000000000000000000000000000000000000000000000000005");
-        let cof =
-            hex_to_scalar(b"0000000000000000000000000000000000000000000000000000000000000003");
+        let secret: Secp256k1Scalar = Secp256k1Scalar::from_hex(
+            b"0000000000000000000000000000000000000000000000000000000000000005",
+        );
+        let cof = Secp256k1Scalar::from_hex(
+            b"0000000000000000000000000000000000000000000000000000000000000003",
+        );
         let polynomial = vec![secret, cof];
         let vss = VerifiableSecretSharing {
-            threshold: 1,
+            threshold: 2,
             share_amount: 2,
-            commitments: vec![],
         };
         let shares = vss.evaluate_polynomial(&polynomial);
         println!("shares: {:?}", shares);
 
         let recovered = vss.recover(&shares);
         assert_eq!(secret, recovered);
-        let commitments = vss.generate_commitments(&polynomial);
+        let commitments = VerifiableSecretSharing::generate_commitments(&polynomial);
         for share in shares {
             assert!(VerifiableSecretSharing::verify(share, &commitments))
         }
@@ -212,9 +207,8 @@ mod tests {
     fn test_vss_67_of_100_works() {
         let secret: Secp256k1Scalar = Secp256k1Scalar::new_random();
         let vss = VerifiableSecretSharing {
-            threshold: 66,
+            threshold: 67,
             share_amount: 100,
-            commitments: vec![],
         };
         let (shares, commitments) = vss.split(&secret);
         let sub_shares = &shares[0..67];
@@ -223,9 +217,5 @@ mod tests {
         for share in shares {
             assert!(VerifiableSecretSharing::verify(share, &commitments))
         }
-    }
-
-    fn hex_to_scalar(hex: &[u8]) -> Secp256k1Scalar {
-        Secp256k1Scalar::from_bigint(&BigInt::parse_bytes(hex, 16).unwrap())
     }
 }

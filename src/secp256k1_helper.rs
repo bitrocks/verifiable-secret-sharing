@@ -16,6 +16,7 @@ pub struct Secp256k1Scalar(SecretKey);
 pub struct Secp256k1Point(PublicKey);
 
 impl Secp256k1Point {
+    ///
     pub fn generator() -> Secp256k1Point {
         let mut v = vec![4 as u8];
         v.extend(GENERATOR_X.as_ref());
@@ -23,11 +24,11 @@ impl Secp256k1Point {
         Secp256k1Point(PublicKey::from_slice(&v).unwrap())
     }
 
-    fn random_point() -> Secp256k1Point {
-        let random_scalar: Secp256k1Scalar = Secp256k1Scalar::new_random();
-        let base_point = Self::generator();
-        base_point.scalar_mul(&random_scalar)
-    }
+    // fn random_point() -> Secp256k1Point {
+    //     let random_scalar: Secp256k1Scalar = Secp256k1Scalar::new_random();
+    //     let base_point = Self::generator();
+    //     base_point.scalar_mul(&random_scalar)
+    // }
 
     fn add_point(&self, other: &PublicKey) -> Secp256k1Point {
         Secp256k1Point(self.0.combine(other).unwrap())
@@ -44,6 +45,7 @@ impl Secp256k1Point {
 }
 
 impl Secp256k1Scalar {
+    ///
     pub fn new_random() -> Secp256k1Scalar {
         // let rand_bytes = thread_rng().gen::<[u8; 32]>();
         let mut rand_bytes = [0u8; 32];
@@ -51,12 +53,14 @@ impl Secp256k1Scalar {
         Secp256k1Scalar(SecretKey::from_slice(&rand_bytes[..]).unwrap())
     }
 
+    ///
     pub fn zero() -> Secp256k1Scalar {
         let zero_arr = [0u8; 32];
         let zero = unsafe { std::mem::transmute::<[u8; 32], SecretKey>(zero_arr) };
         Secp256k1Scalar(zero)
     }
 
+    ///
     pub fn one() -> Secp256k1Scalar {
         Secp256k1Scalar::from_bigint(&BigInt::from(1))
     }
@@ -65,6 +69,7 @@ impl Secp256k1Scalar {
         BigInt::from_bytes_be(Plus, &self.0[..])
     }
 
+    ///
     pub fn curve_order() -> BigInt {
         BigInt::from_bytes_be(Plus, &CURVE_ORDER)
     }
@@ -87,6 +92,7 @@ impl Secp256k1Scalar {
         Secp256k1Scalar::from_bigint(&result_bigint_mod)
     }
 
+    ///
     pub fn inv(&self) -> Secp256k1Scalar {
         let element = self.to_bigint();
         let modulus = Secp256k1Scalar::curve_order();
@@ -122,6 +128,7 @@ impl Secp256k1Scalar {
         Secp256k1Scalar::from_bigint(&t)
     }
 
+    ///
     pub fn mod_scalar(&self) -> Secp256k1Scalar {
         let bigint_self = self.to_bigint();
         let mod_bigint_self = bigint_self.mod_floor(&Secp256k1Scalar::curve_order());
@@ -134,6 +141,7 @@ impl Secp256k1Scalar {
         Secp256k1Scalar::from_bigint(&mod_bigint_self)
     }
 
+    ///
     pub fn from_bigint(n: &BigInt) -> Secp256k1Scalar {
         if *n == BigInt::from(0) {
             Secp256k1Scalar::zero()
@@ -147,6 +155,10 @@ impl Secp256k1Scalar {
             // println!("secret_key: {:?}", result_bytes);
             Secp256k1Scalar(SecretKey::from_slice(&result_bytes).unwrap())
         }
+    }
+    ///
+    pub fn from_hex(hex: &[u8]) -> Secp256k1Scalar {
+        Secp256k1Scalar::from_bigint(&BigInt::parse_bytes(hex, 16).unwrap())
     }
 }
 impl Add<Secp256k1Scalar> for Secp256k1Scalar {
@@ -194,13 +206,6 @@ pub fn get_context() -> &'static Secp256k1<VerifyOnly> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn add_point_works() {
-        let point1 = Secp256k1Point::random_point();
-        let point2 = Secp256k1Point::random_point();
-        let point3 = Secp256k1Point::random_point();
-        println!("point1: {:?}", point1 + point2);
-    }
 
     #[test]
     fn test_bigint_to_scalar() {

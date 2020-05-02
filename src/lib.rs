@@ -3,15 +3,12 @@
 
 //! A rust implementation of  Shamir Secret Sharing over Finite Field.
 //!
-//! The lib support large field charactirics `prime` by taking advantage of `num_bigint`.
-//! It's not optimized for production purpose, which can be improved in several aspects:
-//! 1. replace the `extended_euclid_algo` with machine-friendly `stein_algo` to calculate the modulo inverse;
-//! 2. add commitment scheme to make it verifiable
-//!
 //!
 //! ## Example
-//! ```rust
-//! use shamir_secret_sharing::ShamirSecretSharing as SSS;
+//! ### shamir's secret sharing
+//!
+//!  ```rust
+//! use verifiable_secret_sharing::ShamirSecretSharing as SSS;
 //! use num_bigint::{BigInt, BigUint};
 //! # fn main() {
 //! let sss = SSS {
@@ -27,9 +24,31 @@
 //! println!("shares: {:?}", shares);
 //! assert_eq!(secret, sss.recover(&shares[0..sss.threshold as usize]));
 //! # }
+//!
+//! ```
+//!
+//! ### feldman's verifiable secret sharing
+//!
+//! ```rust
+//! use verifiable_secret_sharing::VerifiableSecretSharing;
+//! use verifiable_secret_sharing::Secp256k1Scalar;
+//! # fn main(){
+//! let secret: Secp256k1Scalar = Secp256k1Scalar::from_hex(b"7613c39ea009afd24ccf8c25f13591377091297b20a48ecaad0e92618d36dcc6");
+//! let vss = VerifiableSecretSharing {
+//!     threshold: 3,
+//!     share_amount: 5,
+//! };
+//! let (shares, commitments) = vss.split(&secret);
+//! let sub_shares = &shares[0..3];
+//! let recovered = vss.recover(&sub_shares);
+//! assert_eq!(secret, recovered);
+//! for share in shares {
+//!     assert!(VerifiableSecretSharing::verify(share, &commitments))
+//! }
+//! # }
 //! ```
 pub use feldman_vss::VerifiableSecretSharing;
-pub use num_bigint_dig;
+pub use secp256k1_helper::{Secp256k1Point, Secp256k1Scalar};
 pub use simple_sss::ShamirSecretSharing;
 
 mod feldman_vss;

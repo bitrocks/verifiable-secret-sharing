@@ -1,5 +1,5 @@
 [package]
-name = "shamir_secret_sharing"
+name = "verifiable_secret_sharing"
 version = "0.1.1"
 authors = ["hupeng <bitrocks.hu@gmail.com>"]
 edition = "2018"
