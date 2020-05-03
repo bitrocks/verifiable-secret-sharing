@@ -16,7 +16,7 @@ It's not optimized for production purpose yet.
 
 The lib support large field charactirics `prime` by taking advantage of `num_bigint` .
 
-## Example
+### Example
 
 ``` rust
 use verifiable_secret_sharing::ShamirSecretSharing as SSS;
@@ -40,8 +40,12 @@ assert_eq!(secret, sss.recover(&shares[0..sss.threshold as usize]));
 
 ## Verifiable Secret Sharing(VSS)
 
-[A practical scheme for non-interactive verifiable secret sharing](https://ieeexplore.ieee.org/document/4568297)
+[A practical scheme for non-interactive verifiable secret sharing](./paper/feldmanVSS.pdf)
 
+### How it works?
+check [feldmanVSS review note](./paper/feldmanVSS_review_cn.md).
+
+### Example
 ``` rust
 
 use verifiable_secret_sharing::VerifiableSecretSharing;
@@ -61,3 +65,17 @@ fn main(){
     }
 }
 ```
+
+## Publicly Verifiable Secret Sharing(PVSS)
+[Publicly Verifiable Secret Sharing](./paper/stadlerPVSS.pdf)
+
+
+
+
+
+
+
+
+
+
+
